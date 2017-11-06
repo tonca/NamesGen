@@ -82,24 +82,21 @@ class NamesModel:
         exp_preds = np.exp(preds)
         preds = exp_preds / np.sum(exp_preds)
         probas = np.random.multinomial(1, preds, 1)
-
         return np.argmax(probas)
 
 
     def predict(self, diversity):
 
+        start_index = random.randint(1,len(self.text)-self.MAX_LENGTH)
+
         print()
         print('----- diversity:', diversity)
 
-        # Picking a random seed for generation
-        start_index = random.randint(1,len(self.text)-self.MAX_LENGTH)
-        generated = ''
         section = self.text[start_index: start_index + self.MAX_LENGTH]
-        generated += section
         print('----- Generating with seed: "' + section + '"\n-----------\n')
 
         out_text = ''
-        for i in range(500):
+        for i in range(600):
             x_pred = np.zeros((1, self.MAX_LENGTH, len(self.chars)))
             for t, char in enumerate(section):
                 x_pred[0, t, self.char_indices[char]] = 1.
@@ -109,7 +106,7 @@ class NamesModel:
             next_index = self.sample(preds, diversity)
             next_char = self.indices_char[next_index]
 
-            generated += next_char
+            section = section[1:] + next_char
 
             out_text = out_text + next_char
 
@@ -120,5 +117,3 @@ class NamesModel:
 
         collisions = len(set(self.names).intersection(results))
         print('n collisions for diversity {}: {}'.format(diversity,collisions))
-
-        return results
