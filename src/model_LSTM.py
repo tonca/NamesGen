@@ -54,6 +54,9 @@ class NamesModel:
         optimizer = RMSprop(lr=0.01)
         self.model.compile(loss='categorical_crossentropy', optimizer=optimizer)
 
+        print(self.x.shape)
+        print(self.y.shape)
+
 
     def load_model(self, path):
         print( "Loading weights form {}".format(path) )
@@ -63,12 +66,13 @@ class NamesModel:
         print("Weights stored at {}".format(path))
         self.model.save_weights(path)
 
-    def train_model(self):
+    def train_model(self, epochs):
         
         self.model.fit(self.x,
             self.y,
             batch_size=128,
-            epochs=1)
+            epochs=epochs)
+
 
     @staticmethod
     def sample(preds, temperature=1.0):
@@ -82,45 +86,39 @@ class NamesModel:
         return np.argmax(probas)
 
 
-    def predict(self):
+    def predict(self, diversity):
 
-        results = {}
+        print()
+        print('----- diversity:', diversity)
 
+        # Picking a random seed for generation
         start_index = random.randint(1,len(self.text)-self.MAX_LENGTH)
+        generated = ''
+        section = self.text[start_index: start_index + self.MAX_LENGTH]
+        generated += section
+        print('----- Generating with seed: "' + section + '"\n-----------\n')
 
-        for diversity in [0.2, 0.5, 1.0, 1.2]:
-            print()
-            print('----- diversity:', diversity)
+        out_text = ''
+        for i in range(500):
+            x_pred = np.zeros((1, self.MAX_LENGTH, len(self.chars)))
+            for t, char in enumerate(section):
+                x_pred[0, t, self.char_indices[char]] = 1.
 
-            generated = ''
-            section = self.text[start_index: start_index + self.MAX_LENGTH]
-            generated += section
-            print('----- Generating with seed: "' + section + '"\n-----------\n')
+            preds = self.model.predict(x_pred, verbose=0)[0]
 
-            out_text = ''
-            for i in range(5000):
-                x_pred = np.zeros((1, self.MAX_LENGTH, len(self.chars)))
-                for t, char in enumerate(section):
-                    x_pred[0, t, self.char_indices[char]] = 1.
+            next_index = self.sample(preds, diversity)
+            next_char = self.indices_char[next_index]
 
-                preds = self.model.predict(x_pred, verbose=0)[0]
+            generated += next_char
 
-                next_index = self.sample(preds, diversity)
-                next_char = self.indices_char[next_index]
+            out_text = out_text + next_char
 
-                generated += next_char
-                section = section[1:] + next_char
+        results = set(out_text.split()[1:-1])
 
-                out_text = out_text + next_char
+        print('Diversity: {}'.format(diversity))
+        print(results)
 
+        collisions = len(set(self.names).intersection(results))
+        print('n collisions for diversity {}: {}'.format(diversity,collisions))
 
-            results[diversity] = set(out_text.split()[1:-1])
-
-
-            print('Diversity: {}'.format(diversity))
-            print(results[diversity])
-
-            collisions = len(set(self.names).intersection(results[diversity]))
-            print('n collisions for diversity {}: {}'.format(diversity,collisions))
-
-        return results[1.2]
+        return results
